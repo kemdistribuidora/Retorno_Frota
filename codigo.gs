@@ -1,25 +1,22 @@
 /**
- * Back-end do recebimento de fornecedor.
+ * Back-end do Retorno de Frota.
  * Cole este arquivo no projeto Apps Script vinculado à planilha.
  */
 
 const CONFIGURACAO = Object.freeze({
-  ID_PLANILHA: '12YepnQuYfgKxaOgmPQSLx8qV6nCFRhsKyvtCts9VJiM',
-  NOME_ABA: 'RECEBIMENTO',
+  ID_PLANILHA: 'COLOQUE_AQUI_O_ID_DA_PLANILHA',
+  NOME_ABA: 'RETORNO_FROTA',
   CABECALHOS: [
     'DATA',
-    'FORNECEDOR',
-    'NFE',
-    'LOTE',
-    'VALIDADE',
-    'PRODUTO MASTER',
-    'QUANTIDADE DA NOTA',
-    'UNIDADE DE MEDIDA',
-    'TEMPERATURA',
-    'FABRICAÇÃO',
+    'HORA',
+    'FROTA',
+    'NF',
+    'QUANTIDADE',
+    'PRODUTO',
+    'MOTORISTA/AJUDANTE',
+    'CAIXAS',
     'CONFERENTE',
-    'H DE CHEGA',
-    'H DE SAIDA'
+    'PALETES'
   ]
 });
 
@@ -29,7 +26,7 @@ function doGet(e) {
     try {
       return respostaJsonp_(e.parameter.callback, {
         sucesso: true,
-        lancamentos: listarRecebimentosPorData_(e.parameter.data)
+        lancamentos: listarLancamentosPorData_(e.parameter.data)
       });
     } catch (erro) {
       console.error(erro);
@@ -41,22 +38,22 @@ function doGet(e) {
   }
 
   return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Recebimento de Fornecedor')
+    .setTitle('Retorno de Frota')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
- * Recebe o POST enviado pelo GitHub Pages.
+ * Recebe o POST enviado pelo index.html.
  * Trata o payload vindo como parâmetro ou como corpo de texto puro (no-cors fallback).
  */
 function doPost(e) {
   try {
     let textoPayload = "";
-    
+
     // 1. Tenta pegar via parâmetro URL encoded tradicional
     if (e && e.parameter && e.parameter.payload) {
       textoPayload = e.parameter.payload;
-    } 
+    }
     // 2. Fallback: Se o navegador sanitizou a requisição como text/plain devido ao no-cors
     else if (e && e.postData && e.postData.contents) {
       let conteudoBruto = e.postData.contents;
@@ -71,7 +68,7 @@ function doPost(e) {
     if (!textoPayload) throw new Error('Dados do formulário não recebidos ou vazios.');
 
     const payload = JSON.parse(textoPayload);
-    const mensagem = salvarRecebimentos(payload.setor, payload.lancamentos);
+    const mensagem = salvarLancamentos(payload.setor, payload.lancamentos);
     return respostaJson_({ sucesso: true, mensagem: mensagem });
   } catch (erro) {
     console.error(erro);
@@ -80,14 +77,14 @@ function doPost(e) {
 }
 
 /**
- * Recebe os registros enviados pelo index.html e os adiciona à aba RECEBIMENTO.
+ * Recebe os registros enviados pelo index.html e os adiciona à aba de retorno de frota.
  */
-function salvarRecebimentos(setor, lancamentos) {
+function salvarLancamentos(setor, lancamentos) {
   if (!Array.isArray(lancamentos) || !lancamentos.length) {
     throw new Error('Nenhum lançamento foi informado.');
   }
 
-  const aba = obterAbaRecebimento_();
+  const aba = obterAbaRetornoFrota_();
   garantirCabecalhos_(aba);
 
   const novos = [];
@@ -132,12 +129,10 @@ function salvarRecebimentos(setor, lancamentos) {
 function formatarLinhas_(aba, primeiraLinha, quantidadeLinhas) {
   if (quantidadeLinhas <= 0) return;
   aba.getRange(primeiraLinha, 1, quantidadeLinhas, 1).setNumberFormat('dd/MM/yyyy');
-  aba.getRange(primeiraLinha, 5, quantidadeLinhas, 1).setNumberFormat('dd/MM/yyyy');
-  aba.getRange(primeiraLinha, 10, quantidadeLinhas, 1).setNumberFormat('dd/MM/yyyy');
-  aba.getRange(primeiraLinha, 12, quantidadeLinhas, 2).setNumberFormat('HH:mm');
+  aba.getRange(primeiraLinha, 2, quantidadeLinhas, 1).setNumberFormat('HH:mm');
 }
 
-function obterAbaRecebimento_() {
+function obterAbaRetornoFrota_() {
   const planilha = SpreadsheetApp.openById(CONFIGURACAO.ID_PLANILHA);
   const aba = planilha.getSheetByName(CONFIGURACAO.NOME_ABA);
   if (!aba) throw new Error(`A aba "${CONFIGURACAO.NOME_ABA}" não foi encontrada.`);
@@ -153,18 +148,18 @@ function garantirCabecalhos_(aba) {
     aba.getRange(1, 1, 1, quantidadeColunas).setValues([CONFIGURACAO.CABECALHOS]);
     aba.getRange(1, 1, 1, quantidadeColunas)
       .setFontWeight('bold')
-      .setBackground('#143f73')
+      .setBackground('#123a6b')
       .setFontColor('#ffffff');
     aba.setFrozenRows(1);
   }
 }
 
-function listarRecebimentosPorData_(dataConsulta) {
+function listarLancamentosPorData_(dataConsulta) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dataConsulta || ''))) {
     throw new Error('A data informada é inválida.');
   }
 
-  const aba = obterAbaRecebimento_();
+  const aba = obterAbaRetornoFrota_();
   const ultimaLinha = encontrarProximaLinhaDeDados_(aba) - 1;
   if (ultimaLinha < 2) return [];
 
@@ -177,18 +172,15 @@ function listarRecebimentosPorData_(dataConsulta) {
     if (formatarDataParaInput_(linha[0], fusoHorario) === dataConsulta) {
       resultado.push({
         linhaPlanilha: i + 2,
-        fornecedor: textoParaTela_(linha[1]),
-        nfe: textoParaTela_(linha[2]),
-        lote: textoParaTela_(linha[3]),
-        validade: formatarDataParaTelaBR_(linha[4], fusoHorario),
-        produtoMaster: textoParaTela_(linha[5]),
-        quantidadeDaNota: textoParaTela_(linha[6]),
-        unidadeDeMedida: textoParaTela_(linha[7]),
-        temperatura: textoParaTela_(linha[8]),
-        fabricacao: formatarDataParaTelaBR_(linha[9], fusoHorario),
-        conferente: textoParaTela_(linha[10]),
-        horaChegada: formatarHoraParaTela_(linha[11], fusoHorario),
-        horaSaida: formatarHoraParaTela_(linha[12], fusoHorario)
+        hora: formatarHoraParaTela_(linha[1], fusoHorario),
+        frota: textoParaTela_(linha[2]),
+        nfe: textoParaTela_(linha[3]),
+        quantidade: textoParaTela_(linha[4]),
+        produto: textoParaTela_(linha[5]),
+        motorista: textoParaTela_(linha[6]),
+        caixas: textoParaTela_(linha[7]),
+        conferente: textoParaTela_(linha[8]),
+        paletes: textoParaTela_(linha[9])
       });
     }
   }
@@ -219,11 +211,6 @@ function formatarDataParaInput_(valor, fusoHorario) {
   return valor instanceof Date ? Utilities.formatDate(valor, fusoHorario, 'yyyy-MM-dd') : '';
 }
 
-/** Devolve no formato brasileiro para o preenchimento da tabela */
-function formatarDataParaTelaBR_(valor, fusoHorario) {
-  return valor instanceof Date ? Utilities.formatDate(valor, fusoHorario, 'dd/MM/yyyy') : textoParaTela_(valor);
-}
-
 function formatarHoraParaTela_(valor, fusoHorario) {
   return valor instanceof Date ? Utilities.formatDate(valor, fusoHorario, 'HH:mm') : textoParaTela_(valor);
 }
@@ -237,25 +224,22 @@ function converterLancamento_(lancamento, numeroLinha) {
     throw new Error(`Lançamento ${numeroLinha} inválido.`);
   }
 
-  const fornecedor = textoSeguro_(lancamento.fornecedor);
-  if (!fornecedor) {
-    throw new Error(`Informe o fornecedor no lançamento ${numeroLinha}.`);
+  const frota = textoSeguro_(lancamento.frota);
+  if (!frota) {
+    throw new Error(`Informe a frota no lançamento ${numeroLinha}.`);
   }
 
   return [
     converterData_(lancamento.data, 'data do cabeçalho'),
-    fornecedor,
+    converterHora_(lancamento.hora, `hora do lançamento ${numeroLinha}`),
+    frota,
     textoSeguro_(lancamento.nfe),
-    textoSeguro_(lancamento.lote),
-    converterData_(lancamento.validade, `validade do lançamento ${numeroLinha}`, true),
-    textoSeguro_(lancamento.produtoMaster),
-    converterQuantidade_(lancamento.quantidadeDaNota, numeroLinha),
-    textoSeguro_(lancamento.unidadeDeMedida),
-      converterTemperatura_(lancamento.temperatura, numeroLinha),
-    converterData_(lancamento.fabricacao, `fabricação do lançamento ${numeroLinha}`, true),
+    converterQuantidade_(lancamento.quantidade, numeroLinha),
+    textoSeguro_(lancamento.produto),
+    textoSeguro_(lancamento.motorista),
+    converterQuantidade_(lancamento.caixas, numeroLinha),
     textoSeguro_(lancamento.conferente),
-    converterHora_(lancamento.horaChegada, `hora de chegada do lançamento ${numeroLinha}`),
-    converterHora_(lancamento.horaSaida, `hora de saída do lançamento ${numeroLinha}`)
+    converterQuantidade_(lancamento.paletes, numeroLinha)
   ];
 }
 
@@ -300,7 +284,7 @@ function converterQuantidade_(valor, numeroLinha) {
   const quantidade = Number(normalizado);
 
   if (!Number.isFinite(quantidade) || quantidade < 0) {
-    throw new Error(`A quantidade da nota no lançamento ${numeroLinha} é inválida.`);
+    throw new Error(`Um dos valores numéricos do lançamento ${numeroLinha} é inválido.`);
   }
   return quantidade;
 }
@@ -318,21 +302,6 @@ function converterHora_(valor, nomeCampo) {
 function textoSeguro_(valor) {
   const texto = String(valor || '').trim();
   return /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
-}
-
-/** Converte o campo de temperatura: aceita valores negativos e tenta retornar número. */
-function converterTemperatura_(valor, numeroLinha) {
-  if (valor === '' || valor === null || valor === undefined) return '';
-
-  const texto = String(valor).trim();
-  // Remove símbolo de graus e letras, mantém sinal e separador decimal
-  const limpo = texto.replace(/[°º\sA-Za-z]/g, '').replace(/,/g, '.');
-
-  const numero = Number(limpo);
-  if (Number.isFinite(numero)) return numero;
-
-  // Se não for número, devolve como texto seguro (evita injeção de fórmulas)
-  return textoSeguro_(texto);
 }
 
 function respostaJson_(conteudo) {

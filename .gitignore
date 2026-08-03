@@ -1,7 +1,7 @@
 # Backend do Apps Script — NÃO publicar no GitHub Pages.
 # Roda nos servidores do Google (script.google.com), não no site.
 # Contém credenciais/URLs e não deve ir para um repositório público.
-Código.gs
+codigo.gs
 appscript.json
 
 # Temporários
