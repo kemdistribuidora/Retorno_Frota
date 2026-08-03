@@ -339,6 +339,16 @@
         .filter(Boolean);
     }
 
+    function marcarLancamentosComoSalvos() {
+      [...gridLinhas.rows].forEach(linha => {
+        const lancamento = obterDadosDaLinha(linha);
+        const possuiConteudo = Object.entries(lancamento)
+          .some(([campo, valor]) => campo !== 'data' && valor !== '');
+        if (!possuiConteudo) return;
+        linha.dataset.assinatura = assinaturaDoLancamento(lancamento);
+      });
+    }
+
     async function enviarParaAppsScript(payload) {
       const corpo = new URLSearchParams();
       corpo.append('payload', JSON.stringify(payload));
@@ -411,7 +421,7 @@
         statusLabel.textContent = 'Não foi possível consultar a planilha.';
         statusLabel.className = 'status erro';
       };
-      script.src = `${URL_APPS_SCRIPT}?acao=listarRetornos&data=${encodeURIComponent(dataLancamento.value)}&callback=${nomeCallback}`;
+      script.src = `${URL_APPS_SCRIPT}?acao=listarRecebimentos&data=${encodeURIComponent(dataLancamento.value)}&callback=${nomeCallback}`;
       document.head.appendChild(script);
     }
 
@@ -435,14 +445,16 @@
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
           .withSuccessHandler(mensagem => {
+            marcarLancamentosComoSalvos();
             statusLabel.textContent = mensagem || `${lancamentos.length} lançamento(s) salvo(s) com sucesso.`;
             statusLabel.className = 'status ok';
+            buscarLancamentosPorData();
           })
           .withFailureHandler(erro => {
             statusLabel.textContent = `Não foi possível salvar: ${erro.message || erro}`;
             statusLabel.className = 'status erro';
           })
-          .salvarRetornos(setor, lancamentos);
+          .salvarRecebimentos(setor, lancamentos);
         return;
       }
 
@@ -450,6 +462,7 @@
         statusLabel.textContent = 'Enviando lançamentos para a planilha...';
         statusLabel.className = 'status';
         await enviarParaAppsScript({ setor, lancamentos });
+        marcarLancamentosComoSalvos();
         statusLabel.textContent = `${lancamentos.length} lançamento(s) enviado(s). Confira a planilha em instantes.`;
         statusLabel.className = 'status ok';
         window.setTimeout(buscarLancamentosPorData, 800);
