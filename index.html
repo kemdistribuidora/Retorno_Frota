@@ -389,7 +389,7 @@
         statusLabel.textContent = 'Informe a data para atualizar.';
         statusLabel.className = 'status pendente';
         dataLancamento.focus();
-        return;
+        return Promise.resolve();
       }
 
       const nomeCallback = `retornoFrotas${Date.now()}`;
@@ -397,31 +397,36 @@
       statusLabel.textContent = 'Buscando lançamentos na planilha...';
       statusLabel.className = 'status';
 
-      window[nomeCallback] = resposta => {
-        script.remove();
-        delete window[nomeCallback];
-        if (!resposta.sucesso) {
-          statusLabel.textContent = resposta.mensagem || 'Não foi possível buscar os lançamentos.';
+      return new Promise(resolve => {
+        window[nomeCallback] = resposta => {
+          script.remove();
+          delete window[nomeCallback];
+          if (!resposta.sucesso) {
+            statusLabel.textContent = resposta.mensagem || 'Não foi possível buscar os lançamentos.';
+            statusLabel.className = 'status erro';
+            resolve();
+            return;
+          }
+
+          const lancamentos = resposta.lancamentos || [];
+          preencherLancamentos(lancamentos);
+          statusLabel.textContent = lancamentos.length
+            ? `${lancamentos.length} lançamento(s) carregado(s) para esta data.`
+            : 'Nenhum lançamento encontrado para esta data.';
+          statusLabel.className = 'status ok';
+          resolve();
+        };
+
+        script.onerror = () => {
+          script.remove();
+          delete window[nomeCallback];
+          statusLabel.textContent = 'Não foi possível consultar a planilha.';
           statusLabel.className = 'status erro';
-          return;
-        }
-
-        const lancamentos = resposta.lancamentos || [];
-        preencherLancamentos(lancamentos);
-        statusLabel.textContent = lancamentos.length
-          ? `${lancamentos.length} lançamento(s) carregado(s) para esta data.`
-          : 'Nenhum lançamento encontrado para esta data.';
-        statusLabel.className = 'status ok';
-      };
-
-      script.onerror = () => {
-        script.remove();
-        delete window[nomeCallback];
-        statusLabel.textContent = 'Não foi possível consultar a planilha.';
-        statusLabel.className = 'status erro';
-      };
-      script.src = `${URL_APPS_SCRIPT}?acao=listarRecebimentos&data=${encodeURIComponent(dataLancamento.value)}&callback=${nomeCallback}`;
-      document.head.appendChild(script);
+          resolve();
+        };
+        script.src = `${URL_APPS_SCRIPT}?acao=listarRecebimentos&data=${encodeURIComponent(dataLancamento.value)}&callback=${nomeCallback}`;
+        document.head.appendChild(script);
+      });
     }
 
     const botaoSalvar = document.getElementById('salvar');
@@ -447,12 +452,12 @@
 
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
-          .withSuccessHandler(mensagem => {
+          .withSuccessHandler(async mensagem => {
             marcarLancamentosComoSalvos();
             statusLabel.textContent = mensagem || `${lancamentos.length} lançamento(s) salvo(s) com sucesso.`;
             statusLabel.className = 'status ok';
+            await buscarLancamentosPorData();
             botaoSalvar.disabled = false;
-            buscarLancamentosPorData();
           })
           .withFailureHandler(erro => {
             statusLabel.textContent = `Não foi possível salvar: ${erro.message || erro}`;
@@ -470,7 +475,7 @@
         marcarLancamentosComoSalvos();
         statusLabel.textContent = `${lancamentos.length} lançamento(s) enviado(s). Confira a planilha em instantes.`;
         statusLabel.className = 'status ok';
-        window.setTimeout(buscarLancamentosPorData, 800);
+        await buscarLancamentosPorData();
       } catch (erro) {
         statusLabel.textContent = `Falha ao enviar: ${erro.message || erro}`;
         statusLabel.className = 'status erro';
