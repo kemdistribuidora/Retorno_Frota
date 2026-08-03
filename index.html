@@ -332,8 +332,7 @@
           if (!possuiConteudo) return null;
 
           const linhaPlanilha = Number(linha.dataset.linhaPlanilha) || null;
-          const foiAlterado = !linhaPlanilha ||
-            assinaturaDoLancamento(lancamento) !== linha.dataset.assinatura;
+          const foiAlterado = assinaturaDoLancamento(lancamento) !== linha.dataset.assinatura;
           return foiAlterado ? { ...lancamento, linhaPlanilha } : null;
         })
         .filter(Boolean);
