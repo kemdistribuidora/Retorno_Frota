@@ -258,7 +258,7 @@
   </section>
 
   <script>
-    const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbxGDlgoUvvVvjUO_7O6h6veBpjDaPgMG6rzqgVJmY_Ad1DVz-rYPm-egcG8XjIFVh8Q1w/exec';
+    const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbwbeUOYj4-Rii2y2td2nBLRCJnOyI-P_Nr2OW3fj5vLvAEi7nlvrmSndmyk-BBBvUmDmg/exec';
     const gridLinhas = document.getElementById('linhas');
     const dataLancamento = document.getElementById('dataLancamento');
     const statusLabel = document.getElementById('status');
@@ -293,7 +293,7 @@
         aplicarMascaras();
     }
 
-    for (let numero = 1; numero <= 10; numero++) adicionarLinha();
+    for (let numero = 1; numero <= 50; numero++) adicionarLinha();
 
     function valorDaCelula(celula) {
       return celula.querySelector('input, select').value.trim();
