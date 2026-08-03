@@ -424,7 +424,9 @@
       document.head.appendChild(script);
     }
 
-    document.getElementById('salvar').addEventListener('click', async () => {
+    const botaoSalvar = document.getElementById('salvar');
+
+    botaoSalvar.addEventListener('click', async () => {
       const lancamentos = obterLancamentos();
       const setor = 'RetornoFrota';
 
@@ -441,17 +443,21 @@
         return;
       }
 
+      botaoSalvar.disabled = true;
+
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
           .withSuccessHandler(mensagem => {
             marcarLancamentosComoSalvos();
             statusLabel.textContent = mensagem || `${lancamentos.length} lançamento(s) salvo(s) com sucesso.`;
             statusLabel.className = 'status ok';
+            botaoSalvar.disabled = false;
             buscarLancamentosPorData();
           })
           .withFailureHandler(erro => {
             statusLabel.textContent = `Não foi possível salvar: ${erro.message || erro}`;
             statusLabel.className = 'status erro';
+            botaoSalvar.disabled = false;
           })
           .salvarRecebimentos(setor, lancamentos);
         return;
@@ -468,6 +474,8 @@
       } catch (erro) {
         statusLabel.textContent = `Falha ao enviar: ${erro.message || erro}`;
         statusLabel.className = 'status erro';
+      } finally {
+        botaoSalvar.disabled = false;
       }
     });
 
