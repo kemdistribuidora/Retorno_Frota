@@ -7,3 +7,6 @@ appscript.json
 # Temporários
 *.log
 .DS_Store
+
+# Testes
+node_modules/
