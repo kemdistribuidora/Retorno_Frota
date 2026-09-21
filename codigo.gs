@@ -135,8 +135,15 @@ function formatarLinhas_(aba, primeiraLinha, quantidadeLinhas) {
 function obterAbaRetornoFrota_() {
   const planilha = SpreadsheetApp.openById(CONFIGURACAO.ID_PLANILHA);
   const aba = planilha.getSheetByName(CONFIGURACAO.NOME_ABA);
-  if (!aba) throw new Error(`A aba "${CONFIGURACAO.NOME_ABA}" não foi encontrada.`);
-  return aba;
+  if (aba) return aba;
+
+  const normalizar = nome => String(nome).replace(/\s+/g, ' ').trim().toUpperCase();
+  const abas = planilha.getSheets();
+  const equivalente = abas.find(a => normalizar(a.getName()) === normalizar(CONFIGURACAO.NOME_ABA));
+  if (equivalente) return equivalente;
+
+  const nomes = abas.map(a => JSON.stringify(a.getName())).join(', ');
+  throw new Error(`A aba "${CONFIGURACAO.NOME_ABA}" não foi encontrada na planilha "${planilha.getName()}". Abas existentes: ${nomes}.`);
 }
 
 function garantirCabecalhos_(aba) {
